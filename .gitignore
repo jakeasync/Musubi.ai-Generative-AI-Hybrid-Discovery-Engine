@@ -1,6 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ==============================================================================
+# 📦 FRONTEND & NODE DEPENDENCIES
+# ==============================================================================
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +12,59 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js build outputs
 /.next/
 /out/
-
-# production
 /build
 
-# misc
-.DS_Store
-*.pem
+# ==============================================================================
+# 🐍 BACKEND & PYTHON DEPENDENCIES (FastAPI, Prefect, MLflow)
+# ==============================================================================
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+pyvenv.cfg
 
-# debug
+# Python bytecode/caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Vector Indices & Data Processing caches
+.faiss_cache/
+*.faiss
+*.index
+.prefect/
+mlruns/
+.duckdb
+*.db
+*.parquet
+
+# ==============================================================================
+# 🔐 SECURITY & ENVIRONMENT (CRITICAL)
+# ==============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# ==============================================================================
+# 🛠️ SYSTEM MISC & DEBUG LOGS
+# ==============================================================================
+.DS_Store
+Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
 .vercel
-
-# typescript
 *.tsbuildinfo
 next-env.d.ts
