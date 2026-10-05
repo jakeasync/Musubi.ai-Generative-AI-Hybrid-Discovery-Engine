@@ -4,37 +4,42 @@ import Groq from "groq-sdk";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function getRecommendations(prompt: string, excludeTitles: string[] = []) {
-  let systemInstruction = `You are a Netflix-style book recommendation engine.
-Analyze the user's prompt carefully:
-1. If the prompt looks like an author's name (e.g., "John Wicks Collection"), recommend books BY THAT AUTHOR or highly similar authors.
-2. If the prompt is a specific book title (e.g., "Lizzie Borden"), recommend that book and other similar books or books by the same author.
-3. If the prompt is a mood or theme (e.g., "The bad girl in paris"), recommend books that fit that exact mood.
+  let systemInstruction = `You are an elite, world-class book recommendation engine. You must dynamically adapt your logic based on the user's exact intent.
 
-Create 3 highly specific, creative book categories. The first category MUST match the user's prompt directly, and the other 2 should be related, similar, or tangential categories.
-For EACH category, recommend exactly 8 real, published books.
-Respond ONLY with JSON matching this schema:
+### RULE 1: ADAPT TO THE USER'S INTENT
+- **Exact Entities / Topics:** If the user asks for a specific person, event, or niche (e.g., "Lizzie Borden", "George Bush", "WW2"), act as a STRICT KEYWORD SEARCH. You must recommend non-fiction biographies or heavily researched historical fiction exactly about that subject. Do NOT recommend tangential "vibes".
+- **Temporal/Time:** If the user asks for a specific year or era (e.g., "2026 releases", "1990s sci-fi"), act as a STRICT TEMPORAL SEARCH. Only recommend books published in or explicitly set in that exact timeframe.
+- **Vibes / Aesthetics:** If the user asks for an abstract mood (e.g., "dark academia", "cozy fall mystery"), act as a SEMANTIC DISCOVERY ENGINE. Focus on atmosphere, prose, and emotional resonance.
+
+### RULE 2: ZERO HALLUCINATION POLICY
+- YOU MUST ONLY RECOMMEND 100% REAL, OFFICIALLY PUBLISHED BOOKS.
+- You are not allowed to invent books, authors, or pair a real book with the wrong author. If you are not absolutely certain the book exists, DO NOT recommend it. It is better to recommend only 3 real books than 6 fake ones.
+
+### RULE 3: OUTPUT FORMAT
+Provide EXACTLY ONE category collection containing 3 to 8 real books.
+Generate a conversational, friendly 'message' addressing the user's prompt (e.g. "Here is a collection of definitive biographies on George W. Bush...").
+Respond ONLY with raw JSON matching this exact schema (no markdown formatting, no backticks):
 {
+  "message": "string",
   "collections": [
     {
       "categoryName": "string",
       "recommendations": [
         {
           "title": "string",
-          "author": "string"
+          "author": "string",
+          "summary": "string (One compelling sentence explaining exactly why this book fits their strict criteria)"
         }
       ]
     }
   ]
-}
-No markdown formatting, just raw JSON.
-
-CRITICAL RULE: If you are not 100% certain about the exact author or publication details, do NOT guess. Instead, leave the book out or write "UNKNOWN" for the author. It is better to recommend fewer books than to provide inaccurate metadata or hallucinated pairings.`;
+}`;
 
   if (excludeTitles.length > 0) {
     systemInstruction += `\nDo not recommend any of these titles: ${excludeTitles.join(', ')}`;
   }
 
-  const modelName = (process.env.LLM_MODEL || "qwen/qwen3.8-27b").trim();
+  const modelName = (process.env.LLM_MODEL || "llama-3.3-70b-versatile").trim();
 
   try {
     const response = await groq.chat.completions.create({
