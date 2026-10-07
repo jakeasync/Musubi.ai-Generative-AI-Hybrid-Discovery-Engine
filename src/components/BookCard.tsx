@@ -1,60 +1,107 @@
 "use client";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { Bookmark, BookmarkCheck } from "lucide-react";
+import { Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown, ChevronDown } from "lucide-react";
 
 export default function BookCard({
   book,
   index,
   onSave,
-  isSaved
+  isSaved,
+  onLike,
+  isLiked,
+  onDislike,
+  isDisliked,
+  onAddToCollection
 }: {
   book: any,
   index: number,
   onSave: (book: any) => void,
-  isSaved: boolean
+  isSaved: boolean,
+  onLike?: () => void,
+  isLiked?: boolean,
+  onDislike?: () => void,
+  isDisliked?: boolean,
+  onAddToCollection?: () => void
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     gsap.fromTo(cardRef.current,
-      { y: 50, opacity: 0, scale: 0.9 },
-      { y: 0, opacity: 1, scale: 1, duration: 0.6, delay: index * 0.1, ease: "back.out(1.7)" }
+      { y: 30, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.5, delay: index * 0.1, ease: "power2.out" }
     );
   }, [index]);
 
   return (
-    <div ref={cardRef} className="group relative bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-zinc-800/60 transition-colors overflow-hidden flex gap-6">
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+    <div ref={cardRef} className="book-card bg-[#f4f4f4] border-none rounded-[16px] p-5 hover:bg-[#ebebeb] transition-colors flex flex-col sm:flex-row gap-4 relative">
       
-      {book.coverUrl ? (
-        <img src={book.coverUrl} alt={book.title} className="w-24 h-36 object-cover rounded-lg shadow-lg flex-shrink-0" />
-      ) : (
-        <div 
-          className="w-24 h-36 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0 border border-white/10 p-2 text-center overflow-hidden relative"
-          style={{
-            background: `linear-gradient(135deg, hsl(${book.title.length * 15 % 360}, 60%, 30%), hsl(${book.title.length * 25 % 360}, 70%, 15%))`
-          }}
-        >
-          <div className="absolute inset-0 bg-black/20"></div>
-          <span className="text-[10px] font-bold text-white/90 z-10 line-clamp-4 leading-tight shadow-sm drop-shadow-md">{book.title}</span>
-        </div>
-      )}
-      
-      <div className="flex-1 flex flex-col relative z-10">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-xl font-bold text-white mb-1 leading-tight">{book.title}</h3>
-            <p className="text-white/60 text-sm mb-4">{book.author} {book.firstPublishYear && `(${book.firstPublishYear})`}</p>
+      {/* Cover / Placeholder */}
+      <div className="w-[75px] h-[110px] rounded-md shadow-sm border border-black/5 flex-shrink-0 flex flex-col items-center justify-center relative overflow-hidden bg-[#e5e5e5]">
+        {book.coverUrl ? (
+           <img src={book.coverUrl} alt={book.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="p-2 text-center w-full">
+            <span className="text-[9px] font-medium text-gray-500 line-clamp-4 leading-tight">
+              {book.title}
+            </span>
           </div>
-          <button
-            onClick={() => onSave(book)}
-            className="text-white/50 hover:text-purple-400 transition-colors"
+        )}
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Title & Author */}
+        <h3 className="text-[15px] font-bold text-[#141414] mb-0.5 leading-tight font-serif truncate">
+          {book.title}
+        </h3>
+        <p className="text-[#141414] text-[11px] mb-2 truncate">
+          by {book.author || "Unknown"} {book.firstPublishYear && `(${book.firstPublishYear})`}
+        </p>
+        
+        {/* Description / Reason */}
+        <div className="mb-3">
+          <p className="text-[#141414] text-[12px] line-clamp-2 leading-relaxed">
+            {book.summary || book.reason}
+          </p>
+          <span className="text-[11px] font-medium text-[#141414] hover:text-black cursor-pointer mt-0.5 inline-block transition-colors underline underline-offset-2">
+            See more..
+          </span>
+        </div>
+        
+        {/* Action Bar */}
+        <div className="mt-auto pt-2 flex items-center justify-between border-t border-gray-200/50">
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={onLike}
+              className={`transition-colors p-1 rounded-full hover:bg-black/5 ${isLiked ? "text-indigo-600" : "text-[#141414] hover:text-black"}`}
+            >
+              <ThumbsUp className={`w-[14px] h-[14px] ${isLiked ? "fill-current" : ""}`} />
+            </button>
+            <button 
+              onClick={onDislike}
+              className={`transition-colors p-1 rounded-full hover:bg-black/5 ${isDisliked ? "text-indigo-600" : "text-[#141414] hover:text-black"}`}
+            >
+              <ThumbsDown className={`w-[14px] h-[14px] ${isDisliked ? "fill-current" : ""}`} />
+            </button>
+            <button 
+              onClick={() => onSave(book)}
+              className={`transition-colors p-1 rounded-full hover:bg-black/5 ${isSaved ? "text-indigo-600" : "text-[#141414] hover:text-black"}`}
+            >
+              {isSaved ? <BookmarkCheck className="w-[14px] h-[14px]" /> : <Bookmark className="w-[14px] h-[14px]" />}
+            </button>
+          </div>
+          
+          <button 
+            onClick={onAddToCollection}
+            className="flex items-center gap-1 text-[11px] font-medium text-[#141414] hover:text-black transition-colors bg-transparent border-none p-0"
           >
-            {isSaved ? <BookmarkCheck className="text-purple-400" /> : <Bookmark />}
+            Add to collection
+            <ChevronDown className="w-[12px] h-[12px] text-[#141414]" />
           </button>
         </div>
-        <p className="text-white/80 italic text-sm line-clamp-3 mt-auto">"{book.reason}"</p>
+
       </div>
     </div>
   );
