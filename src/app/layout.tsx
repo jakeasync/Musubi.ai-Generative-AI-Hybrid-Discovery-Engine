@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 
 export const metadata: Metadata = {
   title: "Musubi.ai | AI-Powered Book Discovery",
@@ -16,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-screen antialiased`}>
+      <body className={`${inter.className} ${dmSans.variable} h-dvh antialiased`}>
         {children}
       </body>
     </html>
