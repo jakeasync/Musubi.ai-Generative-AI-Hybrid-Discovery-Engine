@@ -29,27 +29,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { prompt, excludeTitles = [] } = parsed.data;
-    const llmOutput = await getRecommendations(prompt, excludeTitles);
     
-    const verifiedCollections = await Promise.all(
-      (llmOutput.collections || []).map(async (collection: any) => {
-        const verifiedRecs = [];
-        for (const rec of (collection.recommendations || [])) {
-          const olData = await verifyBook(rec.title, rec.author);
-          verifiedRecs.push({ ...rec, ...(olData || { coverUrl: null }) });
-          // Add a small 100ms delay between requests to be polite to the API
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        return {
-          categoryName: collection.categoryName,
-          recommendations: verifiedRecs.filter(r => r.openLibraryKey).slice(0, 6)
-        };
-      })
-    );
-    
-    const finalCollections = verifiedCollections.filter(c => c.recommendations.length > 0);
-    
-    return NextResponse.json({ collections: finalCollections });
+    // Forward the request to the Python FastAPI Backend
+    const backendRes = await fetch("http://localhost:8000/api/v1/discover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: prompt, exclude_titles: excludeTitles })
+    });
+
+    if (!backendRes.ok) {
+      throw new Error(`FastAPI Backend error: ${backendRes.statusText}`);
+    }
+
+    const backendData = await backendRes.json();
+    const payload = backendData.data;
+
+    return NextResponse.json({ message: payload.message, collections: payload.collections });
     
   } catch (error) {
     console.error("Recommend API error:", error);
