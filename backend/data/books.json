@@ -1,0 +1,14 @@
+[
+  {"id": 1, "title": "The Name of the Rose", "author": "Umberto Eco", "genre": "Historical Mystery", "description": "A medieval murder mystery set in an Italian monastery."},
+  {"id": 2, "title": "In Cold Blood", "author": "Truman Capote", "genre": "True Crime", "description": "A non-fiction investigation of a brutal murder in Kansas."},
+  {"id": 3, "title": "The Secret History", "author": "Donna Tartt", "genre": "Dark Academia", "description": "A group of elite classics students at a Vermont college cross moral boundaries."},
+  {"id": 4, "title": "Dune", "author": "Frank Herbert", "genre": "Sci-Fi", "description": "A sweeping sci-fi epic about politics, religion, and spice on a desert planet."},
+  {"id": 5, "title": "Thinking, Fast and Slow", "author": "Daniel Kahneman", "genre": "Psychology", "description": "An exploration of how the human mind makes decisions using two different systems."},
+  {"id": 6, "title": "The Martian", "author": "Andy Weir", "genre": "Sci-Fi", "description": "An astronaut is stranded on Mars and must use his scientific ingenuity to survive."},
+  {"id": 7, "title": "A Game of Thrones", "author": "George R.R. Martin", "genre": "Epic Fantasy", "description": "Noble families fight for control of the mythical land of Westeros."},
+  {"id": 8, "title": "Sapiens: A Brief History of Humankind", "author": "Yuval Noah Harari", "genre": "History", "description": "A deep dive into the history and evolution of the human species."},
+  {"id": 9, "title": "The Girl with the Dragon Tattoo", "author": "Stieg Larsson", "genre": "Thriller", "description": "A disgraced journalist and a hacker investigate a decades-old disappearance."},
+  {"id": 10, "title": "1984", "author": "George Orwell", "genre": "Dystopian", "description": "A cautionary tale about totalitarianism, mass surveillance, and government oppression."},
+  {"id": 11, "title": "The Catcher in the Rye", "author": "J.D. Salinger", "genre": "Coming-of-age", "description": "The experiences of a disenchanted teenage boy wandering around New York City."},
+  {"id": 12, "title": "To Kill a Mockingbird", "author": "Harper Lee", "genre": "Classic Fiction", "description": "A young girl navigates racial injustice and morality in the American South."}
+]
