@@ -25,6 +25,7 @@ export default function Sidebar({
   setMessages,
   setIsSidebarOpen,
   forceRefreshDiscovery,
+  setIsSettingsOpen,
   recentSearches,
   onClearSearches,
   onSelectSearch,
@@ -131,7 +132,7 @@ export default function Sidebar({
 
       <div>
         <div className="flex justify-between items-center mb-2 px-3">
-            <h3 className="text-xs font-semibold text-gray-400">Recent chats</h3>
+            <h3 className="text-xs font-semibold text-gray-400">Recent searches</h3>
             {recentSearches.length > 0 && (
               <button onClick={onClearSearches} className="text-[10px] uppercase text-gray-400 hover:text-gray-600">Clear</button>
             )}

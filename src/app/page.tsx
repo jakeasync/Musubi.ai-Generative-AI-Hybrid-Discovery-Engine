@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
-import SearchBox from "@/components/SearchBox";
+import { Search, RefreshCw, LayoutGrid, Smile, Timer, Shuffle } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import BookCard from "@/components/BookCard";
 
@@ -51,6 +51,15 @@ const EXAMPLES = [
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [searchText, setSearchText] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [sortMode, setSortMode] = useState<"best" | "az">("best");
+  const lastAi = [...messages].reverse().find((m) => m.type === "ai");
+  const books: any[] = (lastAi?.collections || [])
+    .flatMap((c: any) => c.recommendations || [])
+    .filter((b: any, i: number, arr: any[]) => arr.findIndex((x) => x.title === b.title) === i)
+    .sort((a: any, b: any) => (sortMode === "az" ? String(a.title).localeCompare(String(b.title)) : 0))
+    .slice(0, 12);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [hasStartedChat, setHasStartedChat] = useState(false);
@@ -75,6 +84,21 @@ export default function Home() {
   const [selectedBook, setSelectedBook] = useState<any>(null);
   const [bookSummary, setBookSummary] = useState<string>("");
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  // Collapse the sidebar while a summary is open; restore it when the summary closes
+  const sidebarAutoClosed = useRef(false);
+  useEffect(() => {
+    if (selectedBook) {
+      if (isSidebarOpen) {
+        sidebarAutoClosed.current = true;
+        setIsSidebarOpen(false);
+      }
+    } else if (sidebarAutoClosed.current) {
+      sidebarAutoClosed.current = false;
+      setIsSidebarOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!selectedBook]);
 
   // Refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +130,8 @@ export default function Home() {
     loadList("bookmatch_disliked", setDisliked);
     loadList("bookmatch_cozy", setCozy);
     loadList("bookmatch_toread", setToRead);
+    handleSearch("Surprise me with some great book recommendations", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,14 +217,16 @@ export default function Home() {
     });
   }, [messages]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, silent = false) => {
     if (!query.trim() || isSearching) return;
 
-    setRecentSearches(prev => {
-      const updated = [query, ...prev.filter(q => q !== query)].slice(0, 10);
-      localStorage.setItem("bookmatch_recent_searches", JSON.stringify(updated));
-      return updated;
-    });
+    if (!silent) {
+      setRecentSearches(prev => {
+        const updated = [query, ...prev.filter(q => q !== query)].slice(0, 10);
+        localStorage.setItem("bookmatch_recent_searches", JSON.stringify(updated));
+        return updated;
+      });
+    }
 
     const userMsgId = Date.now().toString();
     setMessages((prev) => [...prev, { id: userMsgId, type: "user", text: query }]);
@@ -323,7 +351,7 @@ export default function Home() {
           setIsSettingsOpen={setIsSettingsOpen}
           recentSearches={recentSearches}
           onClearSearches={handleClearSearches}
-          onSelectSearch={handleSearch}
+          onSelectSearch={(q: string) => { setCurrentView("chat"); setSearchText(q); handleSearch(q); }}
           bookmarksCount={bookmarks.length}
           likedCount={liked.length}
           dislikedCount={disliked.length}
@@ -337,28 +365,13 @@ export default function Home() {
         {/* Main Content Area */}
         <div className="flex-1 min-w-0 min-h-0 relative flex flex-col w-full h-full">
           {/* Floating Top Controls */}
-          <div className="absolute top-6 left-4 right-6 flex justify-between items-center z-20 pointer-events-none">
-            <div className="pointer-events-auto">
+          <div className="absolute top-2 left-2 right-12 flex justify-between items-center z-20 pointer-events-none">
+            <div className="pointer-events-auto flex items-center gap-2">
               {!isSidebarOpen && (
                 <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Expand Sidebar">
                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
                 </button>
               )}
-            </div>
-            <div className="pointer-events-auto">
-              <div
-                onClick={() => {
-                  setCurrentView("chat");
-                  setHasStartedChat(false);
-                  setMessages([]);
-                }}
-                className="pl-2 pr-5 py-2 rounded-full bg-[#141414] text-white font-medium text-[13px] flex items-center gap-2 cursor-pointer hover:bg-black transition-colors shadow-sm"
-              >
-                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                </div>
-                New Chat
-              </div>
             </div>
           </div>
 
@@ -385,159 +398,140 @@ export default function Home() {
               Return to Discovery
             </button>
           </div>
-        ) : !hasStartedChat ? (
-          /* Landing Page / Hero State (Gemini Style) */
-          <div className="flex flex-col items-center justify-center pt-8 md:pt-16 pb-32 w-full text-center px-4 max-w-[850px] mx-auto flex-1 opacity-0 animate-drop-in">
-            
-            <h2 
-              className="text-3xl md:text-[40px] font-medium text-[#1a1a1a] tracking-tight mb-2"
-              style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
-            >
-              Good morning, Reader
-            </h2>
-            <p className="text-[14px] md:text-[15px] text-gray-500 mb-8 font-medium">
-              I'm your AI library assistant, here to help you <span className="text-black font-semibold cursor-pointer hover:underline underline-offset-2">discover your next great read.</span>
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-3 mb-10 w-full max-w-[750px]">
-              <button onClick={() => handleSearch("Lizzie Borden Collection")} className="flex items-center gap-2 px-4 py-2 bg-[#f4f4f4] hover:bg-[#e5e5e5] rounded-full text-[13.5px] font-medium text-[#1a1a1a] transition-colors border-none">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black"><path d="m16 6 4 14"></path><path d="M12 6v14"></path><path d="M8 8v12"></path><path d="M4 4v16"></path></svg>
-                Lizzie Borden Collection
-              </button>
-              <button onClick={() => handleSearch("2025 Romance Collection")} className="flex items-center gap-2 px-4 py-2 bg-[#f4f4f4] hover:bg-[#e5e5e5] rounded-full text-[13.5px] font-medium text-[#1a1a1a] transition-colors border-none">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                2025 Romance Collection
-              </button>
-              <button onClick={() => handleSearch("Top 10 Sci-Fi Classics")} className="flex items-center gap-2 px-4 py-2 bg-[#f4f4f4] hover:bg-[#e5e5e5] rounded-full text-[13.5px] font-medium text-[#1a1a1a] transition-colors border-none">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black"><circle cx="12" cy="12" r="10"></circle><path d="m12 16 4-4-4-4"></path><path d="M8 12h8"></path></svg>
-                Top 10 Sci-Fi Classics
-              </button>
-              <button onClick={() => handleSearch("A knight who fell in love with a knight")} className="flex items-center gap-2 px-4 py-2 bg-[#f4f4f4] hover:bg-[#e5e5e5] rounded-full text-[13.5px] font-medium text-[#1a1a1a] transition-colors border-none">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                A knight who fell in love with a knight
-              </button>
-            </div>
-
-            <div className="w-full max-w-[650px] text-left">
-              <h3 className="text-[13px] font-semibold text-[#444746] mb-3 px-2">Recent</h3>
-              <div className="flex flex-col gap-1.5 w-full bg-[#f0f4f9]/40 p-2 rounded-[24px]">
-                <div className="flex items-center justify-between px-4 py-3 hover:bg-[#f0f4f9] rounded-[16px] cursor-pointer transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:text-gray-600 transition-colors"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                    <span className="text-[14px] text-[#1f1f1f] font-medium">Summarize my reading notes</span>
-                  </div>
-                  <span className="text-[12px] text-gray-500">1 min</span>
-                </div>
-                <div className="flex items-center justify-between px-4 py-3 hover:bg-[#f0f4f9] rounded-[16px] cursor-pointer transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:text-gray-600 transition-colors"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                    <span className="text-[14px] text-[#1f1f1f] font-medium">Explain quantum computing like I'm 5 years old</span>
-                  </div>
-                  <span className="text-[12px] text-gray-500">Yesterday</span>
-                </div>
-              </div>
-            </div>
-          </div>
         ) : (
-          /* Chat History State */
-          <>
-            <div ref={contentRef} className="w-full max-w-[850px] mx-auto flex flex-col gap-8 px-4 pt-4">
-              {messages.map((msg, idx) => (
-                <div key={msg.id} className="w-full flex flex-col gap-8">
-                  {msg.type === "user" && (
-                    <div
-                      ref={msg.id === lastUserId ? lastUserRef : null}
-                      className="w-full flex justify-end py-1"
-                      style={{ marginTop: TOP }}
-                    >
-                    <div className="bg-[#ebebeb] rounded-2xl px-5 py-3 text-[#1a1a1a] font-medium max-w-[80%]">
-                      {msg.text}
-                    </div>
-                  </div>
-                )}
-
-                {msg.type === "ai" && (
-                  <div
-                    ref={idx === messages.length - 1 ? listContainerRef : null}
-                    className="flex flex-col gap-8 w-full"
-                  >
-                    {(msg.text || (msg.collections && msg.collections.length === 0)) && (
-                      <div className="flex gap-4 w-full">
-                        <div className="w-8 h-8 rounded-full bg-white border border-gray-200 overflow-hidden flex-shrink-0 mt-1 shadow-sm">
-                          <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Assistant" alt="AI" className="w-full h-full object-cover" />
-                        </div>
-                        <p className="ai-message-text text-[#1a1a1a] text-[15px] leading-relaxed mt-1.5 pr-4">
-                          {msg.text || "I couldn't find any verified books matching your strict criteria."}
-                        </p>
-                      </div>
-                    )}
-
-                    {msg.collections && msg.collections.length > 0 && (
-                      <div className="flex flex-col gap-8 w-full">
-                        {msg.collections.map((collection, cIdx) => (
-                          <div key={cIdx} className="flex gap-4 w-full">
-                            <div className="w-8 h-8 rounded-full flex-shrink-0 bg-transparent hidden sm:block"></div>
-                            <div className="flex flex-col gap-3 w-full">
-                              <h3 className="text-[#1a1a1a] text-sm font-semibold uppercase tracking-wider">{collection.categoryName}</h3>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                                {(collection.recommendations || []).map((book: any, bIdx: number) => (
-                                  <div key={book.title + bIdx} onClick={() => handleBookClick(book)} className="cursor-pointer">
-                                    <BookCard 
-                                      book={book} 
-                                      index={bIdx} 
-                                      onSave={(b) => handleBookmark(b)} 
-                                      isSaved={bookmarks.some(b => b.title === book.title)} 
-                                      onLike={() => handleLike(book)}
-                                      isLiked={liked.some(b => b.title === book.title)}
-                                      onDislike={() => handleDislike(book)}
-                                      isDisliked={disliked.some(b => b.title === book.title)}
-                                      onAddToCollection={() => handleAddToCollection(book)}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
+          /* Discover View */
+          <div className={`w-full max-w-none mx-auto flex flex-col gap-6 pr-8 pt-10 pb-12 opacity-0 animate-drop-in pl-8`}>
+            {/* Header: big title + search */}
+            <div className="flex flex-wrap items-center justify-between gap-6">
+            <h1 className="text-[26px] md:text-[34px] leading-tight font-semibold tracking-tight text-[#141414]">Discover your next read</h1>
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSearch(searchText); }}
+              className="flex items-center gap-2 ml-auto"
+            >
+              <div className="relative w-[340px] md:w-[400px]">
+              <div className="flex items-center gap-2">
+              
+              <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-[#f4f4f4] rounded-full">
+                <button type="submit" aria-label="Search" className="flex-shrink-0 text-[#000]"><Search className="w-4 h-4" /></button>
+                <input
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                  placeholder="Search by meaning, e.g. a cozy mystery set in winter"
+                  className="bg-transparent outline-none text-[14px] text-[#141414] w-full placeholder:text-gray-500"
+                />
+              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* AI Loading Bubble */}
-            {isSearching && (
-              <div className="flex gap-4 w-full animate-drop-in">
-                <div className="w-8 h-8 rounded-full bg-white border border-gray-200 overflow-hidden flex-shrink-0 mt-1 shadow-sm">
-                  <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Assistant" alt="AI" className="w-full h-full object-cover" />
+              {searchFocused && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-gray-100 shadow-lg p-2 z-30 flex flex-col">
+                  {recentSearches.length > 0 && (
+                    <>
+                      <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Recent</p>
+                      {recentSearches.slice(0, 4).map((q) => (
+                        <button key={q} type="button" onMouseDown={() => { setSearchText(q); handleSearch(q); }} className="text-left px-3 py-2 rounded-xl text-[13px] text-[#141414] hover:bg-[#f4f4f4] truncate">{q}</button>
+                      ))}
+                    </>
+                  )}
+                  <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Try searching</p>
+                  {["A slow-burn romance with a happy ending", "Books to boost my confidence", "Short thrillers I can finish in a weekend", "Authors similar to Haruki Murakami"].map((q) => (
+                    <button key={q} type="button" onMouseDown={() => { setSearchText(q); handleSearch(q); }} className="text-left px-3 py-2 rounded-xl text-[13px] text-[#141414] hover:bg-[#f4f4f4] truncate">{q}</button>
+                  ))}
                 </div>
-                <div className="flex items-center">
-                  <div className="bg-white border border-[#e5e7eb] shadow-[0_4px_20px_rgba(100,100,255,0.08)] rounded-2xl rounded-tl-sm px-4 py-3.5 flex gap-1.5 items-center">
-                    <div className="w-[5px] h-[5px] bg-[#1a1a1a] rounded-full typing-dot" style={{ animationDelay: "0s" }}></div>
-                    <div className="w-[5px] h-[5px] bg-[#1a1a1a] rounded-full typing-dot" style={{ animationDelay: "0.2s" }}></div>
-                    <div className="w-[5px] h-[5px] bg-[#1a1a1a] rounded-full typing-dot" style={{ animationDelay: "0.4s" }}></div>
-                  </div>
-                </div>
+              )}
               </div>
-            )}
 
-            {searchError && <p className="text-red-500 font-mono text-sm ml-12">{searchError}</p>}
+              <button type="button" onClick={forceRefreshDiscovery} disabled={isSearching} aria-label="Refresh recommendations" title="Refresh" className="w-10 h-10 flex-shrink-0 rounded-full bg-[#f4f4f4] text-[#000] flex items-center justify-center hover:bg-[#ebebeb] transition-colors disabled:opacity-60">
+                <RefreshCw strokeWidth={2.25} className={`w-4 h-4 ${isSearching ? "animate-spin" : ""}`} />
+              </button>
+            </form>
+            </div>
+
+            {/* Filters: sort + tags */}
+            <div className="flex flex-wrap items-center gap-2">
+              {([["best", "Best match"], ["az", "A to Z"]] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setSortMode(k)}
+                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${sortMode === k ? "bg-[#141414] text-white" : "bg-[#f4f4f4] text-[#141414] hover:bg-[#ebebeb]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="w-px h-5 bg-gray-200 mx-1" />
+              {["Fiction", "Self-help", "Mystery", "Romance", "Sci-Fi", "Fantasy", "Biography", "Productivity"].map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => handleSearch(`${tag} books`)}
+                  className="px-3.5 py-1.5 rounded-full text-[13px] font-medium bg-[#f4f4f4] text-[#141414] hover:bg-[#ebebeb] transition-colors"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+
+            {/* Quick tiles */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { icon: LayoutGrid, title: "All books", sub: "Best matches first", q: "Surprise me with some great book recommendations" },
+                { icon: Smile, title: "By mood", sub: "Pick how you want to feel", q: "Feel-good uplifting books" },
+                { icon: Timer, title: "Quick reads", sub: "Under 250 pages", q: "Short books under 250 pages" },
+                { icon: Shuffle, title: "Surprise me", sub: "Shuffle the shelf", q: "Surprise me with unusual book picks" },
+              ].map((t) => (
+                <button
+                  key={t.title}
+                  onClick={() => handleSearch(t.q)}
+                  className="bg-[#f4f4f4] hover:bg-[#ebebeb] transition-colors rounded-[16px] p-5 text-left flex flex-col gap-4"
+                >
+                  <t.icon className="w-4 h-4 text-[#141414]" />
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#141414]">{t.title}</p>
+                    <p className="text-[12px] text-gray-500">{t.sub}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-[16px] font-semibold text-[#141414]">Picked for you</h2>
+                <p className="text-[12px] text-gray-500">Books chosen by meaning, ranked by how well they match.</p>
+              </div>
+              <span className="text-[13px] text-gray-500">{books.length} books</span>
+            </div>
+
+            <div className="relative min-h-[45vh]">
+              {isSearching && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2.5 bg-white/60 backdrop-blur-[2px] rounded-xl">
+                  <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0s" }}></div>
+                  <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0.2s" }}></div>
+                  <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0.4s" }}></div>
+                </div>
+              )}
+              <div className={`grid grid-cols-4 gap-4 ${isSearching ? 'opacity-50 pointer-events-none' : ''}`}>
+                {books.map((book: any, bIdx: number) => (
+                  <div key={book.title + bIdx} onClick={() => handleBookClick(book)} className="cursor-pointer">
+                    <BookCard
+                      book={book}
+                      index={bIdx}
+                      onSave={(b) => handleBookmark(b)}
+                      isSaved={bookmarks.some(b => b.title === book.title)}
+                      onLike={() => handleLike(book)}
+                      isLiked={liked.some(b => b.title === book.title)}
+                      onDislike={() => handleDislike(book)}
+                      isDisliked={disliked.some(b => b.title === book.title)}
+                      onAddToCollection={() => handleAddToCollection(book)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {searchError && <p className="text-red-500 text-sm">{searchError}</p>}
           </div>
-          {/* Empty space under the latest message so it can scroll up to the top */}
-          <div ref={spacerRef} className="flex-none" style={{ height: 120 }} />
-        </>
         )}
           </div>
 
-          {/* Floating Pinned SearchBox for Chat follow-up */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pt-12 flex flex-col items-center justify-center pb-8 z-20 pointer-events-none">
-            <div className="w-full max-w-[850px] px-4 pointer-events-auto">
-              <SearchBox onSearch={handleSearch} isLoading={isSearching} />
-            </div>
-            {!hasStartedChat && searchError && <p className="text-red-500 mt-2 font-mono text-sm text-center w-full pointer-events-auto">{searchError}</p>}
-          </div>
         </div>
       </div>
 

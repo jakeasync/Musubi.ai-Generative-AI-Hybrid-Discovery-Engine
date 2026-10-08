@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-from .services.recommendation_service import RecommendationService
+from services.recommendation_service import RecommendationService
 
 app = FastAPI(
     title="Musubi.ai Discovery API",
