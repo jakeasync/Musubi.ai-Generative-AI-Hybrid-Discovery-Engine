@@ -26,12 +26,6 @@ export default function BookCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    gsap.fromTo(cardRef.current,
-      { y: 30, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.5, delay: index * 0.1, ease: "power2.out" }
-    );
-  }, [index]);
 
   const palette = ["#1e2533", "#b45309", "#0f5c35", "#9b1b4b", "#3b2fa0", "#1e40af", "#334155", "#4d7c0f", "#9a3f17"];
   const hash = Array.from(String(book.title || "")).reduce((a, c) => a + c.charCodeAt(0), 0);
