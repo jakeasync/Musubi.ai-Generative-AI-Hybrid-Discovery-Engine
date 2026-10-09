@@ -1,7 +1,5 @@
 import { llmOutputSchema } from './schemas';
-import Groq from "groq-sdk";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { claudeComplete, extractJson } from './claude';
 
 export async function getRecommendations(prompt: string, excludeTitles: string[] = []) {
   let systemInstruction = `You are an elite, world-class book recommendation engine. You must dynamically adapt your logic based on the user's exact intent.
@@ -39,22 +37,13 @@ Respond ONLY with raw JSON matching this exact schema (no markdown formatting, n
     systemInstruction += `\nDo not recommend any of these titles: ${excludeTitles.join(', ')}`;
   }
 
-  const modelName = (process.env.LLM_MODEL || "llama-3.3-70b-versatile").trim();
-
   try {
-    const response = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: prompt }
-      ],
-      model: modelName,
-      response_format: { type: "json_object" },
-      max_tokens: 900,
+    const text = await claudeComplete({
+      system: systemInstruction,
+      prompt,
+      maxTokens: 1500,
     });
-
-    const text = response.choices[0]?.message?.content;
-    const parsed = JSON.parse(text || "{}");
-    return parsed;
+    return extractJson(text);
   } catch (e) {
     console.error("Failed to parse LLM output or API error:", e);
     throw new Error("Invalid LLM output or API error");
