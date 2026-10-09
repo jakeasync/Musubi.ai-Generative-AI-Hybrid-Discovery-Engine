@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import Groq from "groq-sdk";
 import { verifyBook } from "@/lib/openLibrary";
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { claudeComplete, extractJson } from "@/lib/claude";
 
 export async function GET() {
-  const modelName = (process.env.LLM_MODEL || "qwen/qwen3.8-27b").trim();
-
   try {
-    const response = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: `You are a creative book curator.
+    const text = await claudeComplete({
+      maxTokens: 1500,
+      temperature: 0.8,
+      prompt: `You are a creative book curator.
 Invent 2 highly specific, thrilling, or unusual book categories (e.g., "Gothic Botanical", "South Korean Tales").
 Then recommend exactly 8 real, published books for EACH category.
 Respond ONLY with JSON matching this schema:
@@ -30,16 +25,10 @@ Respond ONLY with JSON matching this schema:
   ]
 }
 
-CRITICAL RULE: If you are not 100% certain about the exact author or publication details, do NOT guess. Instead, leave the book out or write "UNKNOWN" for the author. It is better to recommend fewer books than to provide inaccurate metadata or hallucinated pairings.`
-        }
-      ],
-      model: modelName,
-      response_format: { type: "json_object" },
-      max_tokens: 900,
+CRITICAL RULE: If you are not 100% certain about the exact author or publication details, do NOT guess. Instead, leave the book out or write "UNKNOWN" for the author. It is better to recommend fewer books than to provide inaccurate metadata or hallucinated pairings.`,
     });
 
-    const text = response.choices[0]?.message?.content;
-    const parsed = JSON.parse(text || "{}");
+    const parsed = extractJson(text);
     
     const verifiedCollections = await Promise.all(
       (parsed.collections || []).map(async (collection: any) => {
