@@ -30,22 +30,47 @@ export async function POST(req: NextRequest) {
 
     const { prompt, excludeTitles = [] } = parsed.data;
     
-    // Forward the request to the Python FastAPI Backend
-    const backendRes = await fetch("http://localhost:8000/api/v1/discover", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: prompt, exclude_titles: excludeTitles })
-    });
+    // 1. Try forwarding to the Python FastAPI Backend
+    try {
+      const backendRes = await fetch("http://localhost:8000/api/v1/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: prompt, exclude_titles: excludeTitles }),
+        signal: AbortSignal.timeout(35000),
+      });
 
-    if (!backendRes.ok) {
-      throw new Error(`FastAPI Backend error: ${backendRes.statusText}`);
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        const payload = backendData.data;
+        if (payload && payload.collections) {
+          return NextResponse.json({ message: payload.message, collections: payload.collections });
+        }
+      }
+    } catch (backendErr) {
+      console.warn("FastAPI Backend unavailable or errored, falling back to Next.js engine:", backendErr);
     }
 
-    const backendData = await backendRes.json();
-    const payload = backendData.data;
+    // 2. Fallback to direct Next.js LLM + OpenLibrary verification engine
+    const rawResult = await getRecommendations(prompt, excludeTitles);
+    const collections = await Promise.all(
+      (rawResult.collections || []).map(async (collection: any) => {
+        const verifiedRecs = await Promise.all(
+          (collection.recommendations || []).map(async (rec: any) => {
+            const olData = await verifyBook(rec.title, rec.author);
+            return {
+              ...rec,
+              ...(olData || { coverUrl: null }),
+            };
+          })
+        );
+        return {
+          categoryName: collection.categoryName,
+          recommendations: verifiedRecs,
+        };
+      })
+    );
 
-    return NextResponse.json({ message: payload.message, collections: payload.collections });
-    
+    return NextResponse.json({ message: rawResult.message, collections });
   } catch (error) {
     console.error("Recommend API error:", error);
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });

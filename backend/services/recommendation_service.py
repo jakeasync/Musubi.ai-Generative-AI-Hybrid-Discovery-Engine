@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import asyncio
 from typing import List, Optional
 import httpx
@@ -146,19 +147,21 @@ class RecommendationService:
         Executes the re-architected pipeline: FAISS -> Open Library -> Qwen/LLM
         """
         exclude_titles = exclude_titles or []
-        groq_api_key = os.getenv("GROQ_API_KEY", "")
-        model_name = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b").strip()
+        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        model_name = os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001").strip()
+        claude_url = "https://api.anthropic.com/v1/messages"
         headers = {
-            "Authorization": f"Bearer {groq_api_key}",
-            "Content-Type": "application/json"
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
         }
         
         # 1. FAISS Retrieval (Semantic query)
         faiss_candidates = await self._faiss_semantic_search(prompt)
         
-        # 2. Extract precise search keywords using Groq for OpenLibrary
+        # 2. Extract precise search keywords using Claude for OpenLibrary
         search_queries = [prompt]
-        if groq_api_key:
+        if api_key:
             try:
                 extract_prompt = (
                     "Extract 1 to 3 highly effective search keywords/phrases from this query for a book database. "
@@ -172,10 +175,9 @@ class RecommendationService:
                     "temperature": 0.1,
                     "max_tokens": 100
                 }
-                res = await self.httpx_client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=10.0)
+                res = await self.httpx_client.post(claude_url, headers=headers, json=payload, timeout=10.0)
                 if res.status_code == 200:
-                    content = res.json()["choices"][0]["message"]["content"]
-                    import re
+                    content = res.json()["content"][0]["text"]
                     match = re.search(r'\[.*\]', content, re.DOTALL)
                     if match:
                         queries = json.loads(match.group(0))
@@ -231,33 +233,32 @@ class RecommendationService:
         )
 
         try:
-            # 4. LLM Inference via Groq REST API
-            if not groq_api_key:
-                print("WARNING: GROQ_API_KEY is missing from environment!")
-                
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            max_tokens = int(os.getenv("LLM_MAX_TOKENS", "800").strip())
+            # 4. LLM Inference via Anthropic Messages API
+            if not api_key:
+                print("WARNING: ANTHROPIC_API_KEY is missing from environment!")
+
+            max_tokens = int(os.getenv("LLM_MAX_TOKENS", "1500").strip())
             
             payload = {
                 "model": model_name,
+                "system": system_instruction,
                 "messages": [
-                    {"role": "system", "content": system_instruction},
                     {"role": "user", "content": f"User Request Context: {prompt}"}
                 ],
-                "response_format": {"type": "json_object"},
                 "temperature": 0.2,
                 "max_tokens": max_tokens
             }
 
-            response = await self.httpx_client.post(url, headers=headers, json=payload, timeout=30.0)
+            response = await self.httpx_client.post(claude_url, headers=headers, json=payload, timeout=30.0)
             
             if response.status_code != 200:
-                print(f"Groq API Error: {response.text}")
+                print(f"Claude API Error: {response.text}")
                 raise Exception("Downstream inference engine communication failure.")
                 
             data = response.json()
-            raw_text = data["choices"][0]["message"]["content"]
-            raw_payload = json.loads(raw_text)
+            raw_text = data["content"][0]["text"]
+            json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            raw_payload = json.loads(json_match.group(0) if json_match else raw_text)
             
             # 5. Pydantic Validation of LLM Output
             validated_payload = LLMRecommendationPayload.model_validate(raw_payload)

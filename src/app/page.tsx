@@ -84,6 +84,8 @@ export default function Home() {
   const [selectedBook, setSelectedBook] = useState<any>(null);
   const [bookSummary, setBookSummary] = useState<string>("");
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [stores, setStores] = useState<any[] | null>(null);
+  const [storesLoading, setStoresLoading] = useState(false);
 
   // Collapse the sidebar while a summary is open; restore it when the summary closes
   const sidebarAutoClosed = useRef(false);
@@ -206,15 +208,6 @@ export default function Home() {
       { duration: 400, easing: "ease-out", fill: "backwards" }
     );
 
-    root.querySelectorAll(".book-card").forEach((el, i) => {
-      el.animate(
-        [
-          { opacity: 0, transform: "translateY(24px) scale(0.98)" },
-          { opacity: 1, transform: "none" },
-        ],
-        { duration: 500, delay: 200 + i * 120, easing: "ease-out", fill: "backwards" }
-      );
-    });
   }, [messages]);
 
   const handleSearch = async (query: string, silent = false) => {
@@ -287,6 +280,17 @@ export default function Home() {
   const handleBookClick = async (book: any) => {
     setSelectedBook(book);
     setBookSummary("");
+    setStores(null);
+    setStoresLoading(true);
+    fetch("/api/stores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: book.title, author: book.author, openLibraryKey: book.openLibraryKey }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setStores(d?.stores?.length ? d.stores : null))
+      .catch(() => setStores(null))
+      .finally(() => setStoresLoading(false));
 
     if (book.openLibraryKey) {
       setIsLoadingSummary(true);
@@ -400,7 +404,7 @@ export default function Home() {
           </div>
         ) : (
           /* Discover View */
-          <div className={`w-full max-w-none mx-auto flex flex-col gap-6 pr-8 pt-10 pb-12 opacity-0 animate-drop-in pl-8`}>
+          <div className={`w-full max-w-none mx-auto flex flex-col gap-6 pr-8 pt-10 pb-12 pl-8`}>
             {/* Header: big title + search */}
             <div className="flex flex-wrap items-center justify-between gap-6">
             <h1 className="text-[26px] md:text-[34px] leading-tight font-semibold tracking-tight text-[#141414]">Discover your next read</h1>
@@ -503,13 +507,13 @@ export default function Home() {
 
             <div className="relative min-h-[45vh]">
               {isSearching && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2.5 bg-white/60 backdrop-blur-[2px] rounded-xl">
+                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2.5 pointer-events-none">
                   <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0s" }}></div>
                   <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0.2s" }}></div>
                   <div className="w-[10px] h-[10px] bg-[#141414] rounded-full typing-dot" style={{ animationDelay: "0.4s" }}></div>
                 </div>
               )}
-              <div className={`grid grid-cols-4 gap-4 ${isSearching ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className={`grid grid-cols-4 gap-4 ${isSearching ? "invisible" : ""}`}>
                 {books.map((book: any, bIdx: number) => (
                   <div key={book.title + bIdx} onClick={() => handleBookClick(book)} className="cursor-pointer">
                     <BookCard
@@ -628,15 +632,32 @@ export default function Home() {
                     <div className="mt-4 pt-6 border-t border-gray-200">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xs text-gray-500 font-mono uppercase font-semibold tracking-wider">Find It</h3>
+                        {stores && <span className="bg-gray-100 text-[10px] px-2 py-1 rounded-sm text-gray-400">[AI-picked]</span>}
                       </div>
+                      {storesLoading ? (
+                        <div className="space-y-2 animate-pulse">
+                          <div className="w-full h-12 bg-gray-100 rounded-lg"></div>
+                          <div className="w-full h-12 bg-gray-100 rounded-lg"></div>
+                        </div>
+                      ) : stores ? (
+                        <div className="flex flex-col gap-2.5">
+                          {stores.map((s: any) => (
+                            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className="px-4 py-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg transition-colors flex flex-col gap-0.5">
+                              <span className="text-sm text-[#1a1a1a] font-medium flex items-center justify-between">{s.name}{s.available && <span className="text-[10px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Available</span>}</span>
+                              {s.reason && <span className="text-xs text-gray-500">{s.reason}</span>}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
                       <div className="flex flex-wrap gap-2.5">
                         <a href={`https://www.amazon.com/s?k=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Amazon</a>
                         <a href={`https://www.goodreads.com/search?q=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Goodreads</a>
                         <a href={selectedBook.openLibraryKey ? `https://openlibrary.org${selectedBook.openLibraryKey}` : `https://openlibrary.org/search?q=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Borrow from a library</a>
-                        <a href={`https://www.barnesandnoble.com/s/${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Barnes & Noble</a>
+                        <a href={`https://www.google.com/search?q=${encodeURIComponent('site:barnesandnoble.com ' + selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Barnes & Noble</a>
                         <a href={`https://bookshop.org/search?keywords=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Bookshop.org</a>
-                        <a href={`https://www.audible.com/search?keywords=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors">Audible</a>
+                        <a href={`https://www.audible.com/search?keywords=${encodeURIComponent(selectedBook.title + ' ' + selectedBook.author)}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg text-sm text-[#1a1a1a] font-medium transition-colors"> Audible</a>
                       </div>
+                      )}
                     </div>
                   </div>
                 </div>
