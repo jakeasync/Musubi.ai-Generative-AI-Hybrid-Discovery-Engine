@@ -73,21 +73,18 @@ export default function Home() {
   const [cozy, setCozy] = useState<any[]>([]);
   const [toRead, setToRead] = useState<any[]>([]);
 
-  // Settings State
   const [contentWeight, setContentWeight] = useState(0.5);
   const [collabWeight, setCollabWeight] = useState(0.4);
   const [excludeSeries, setExcludeSeries] = useState(false);
   const [hideOver500, setHideOver500] = useState(false);
   const [apiKey, setApiKey] = useState("");
 
-  // Modal state
   const [selectedBook, setSelectedBook] = useState<any>(null);
   const [bookSummary, setBookSummary] = useState<string>("");
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [stores, setStores] = useState<any[] | null>(null);
   const [storesLoading, setStoresLoading] = useState(false);
 
-  // Collapse the sidebar while a summary is open; restore it when the summary closes
   const sidebarAutoClosed = useRef(false);
   useEffect(() => {
     if (selectedBook) {
@@ -102,7 +99,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!selectedBook]);
 
-  // Refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
