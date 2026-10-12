@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
 
     const { prompt, excludeTitles = [] } = parsed.data;
     
-    // 1. Try forwarding to the Python FastAPI Backend
     try {
       const backendRes = await fetch("http://localhost:8000/api/v1/discover", {
         method: "POST",
@@ -47,10 +46,9 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (backendErr) {
-      console.warn("FastAPI Backend unavailable or errored, falling back to Next.js engine:", backendErr);
+      console.warn("FastAPI service offline, falling back to Next.js pipeline:", backendErr);
     }
 
-    // 2. Fallback to direct Next.js LLM + OpenLibrary verification engine
     const rawResult = await getRecommendations(prompt, excludeTitles);
     const collections = await Promise.all(
       (rawResult.collections || []).map(async (collection: any) => {
