@@ -18,7 +18,6 @@ export async function POST(req: Request) {
 
   const q = encodeURIComponent(`${title} ${author || ""}`.trim());
 
-  // 1. Real availability facts (no API keys needed)
   const [gb, ol] = await Promise.all([
     getJson(
       `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(`"${title}"`)}${
@@ -45,7 +44,6 @@ export async function POST(req: Request) {
   const canBuyOnGoogle = facts.googleBooksSaleability === "FOR_SALE" && facts.googleBooksBuyLink;
   const canBorrow = ["borrowable", "public"].includes(facts.openLibraryEbookAccess);
 
-  // 2. Candidate stores with real, working URLs
   const catalog: Store[] = [
     { id: "bookshop", name: "Bookshop.org", url: `https://bookshop.org/search?keywords=${q}`, reason: "" },
     { id: "amazon", name: "Amazon", url: `https://www.amazon.com/s?k=${q}`, reason: "" },
@@ -53,7 +51,7 @@ export async function POST(req: Request) {
     {
       id: "bn",
       name: "Barnes & Noble",
-      // B&N's own /s/ search route is gone (404), so link by ISBN when known, else a site-scoped search
+      // Link by ISBN-13 when indexed, fallback to site search
       url: isbn13
         ? `https://www.barnesandnoble.com/w/?ean=${isbn13}`
         : `https://www.google.com/search?q=${encodeURIComponent(`site:barnesandnoble.com ${title} ${author || ""}`)}`,
@@ -76,7 +74,6 @@ export async function POST(req: Request) {
     { id: "goodreads", name: "Goodreads", url: `https://www.goodreads.com/search?q=${q}`, reason: "" },
   ];
 
-  // 3. Claude ranks stores + explains, using ONLY the verified facts above
   let ranked: { id: string; reason: string }[] = [];
   try {
     const text = await claudeComplete({
