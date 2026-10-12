@@ -7,10 +7,6 @@ import httpx
 import anthropic
 from pydantic import BaseModel, Field
 
-# ==============================================================================
-# 📋 SYSTEM SCHEMAS (Pydantic Contract Enforcement)
-# ==============================================================================
-
 class BookCard(BaseModel):
     title: str = Field(description="The exact title verified against catalog records.")
     author: str = Field(description="The verified author name.")
@@ -34,13 +30,12 @@ class RecommendationPayload(BaseModel):
     message: str = Field(description="Friendly message introducing the collections.")
     collections: List[BookCollection] = Field(min_length=0, max_length=3)
 
-# LLM-specific schemas for intermediate validation
 class LLMBookCard(BaseModel):
     id: str = Field(description="The exact candidate ID from the provided list.")
     summary: str = Field(description="Max 40 words fallback synopsis.")
     coreIdea: str = Field(description="Max 30 words core idea of the book.")
     whyItMatches: str = Field(description="Max 30 words explaining why it fits the query.")
-    aiAnalysis: str = Field(description="Max 50 words analysis and tags (e.g. ★ Strong match • Practical).")
+    aiAnalysis: str = Field(description="Max 50 words analysis and tags (e.g. Strong match, Practical).")
 
 class LLMBookCollection(BaseModel):
     categoryName: str = Field(description="Category title.")
@@ -50,24 +45,18 @@ class LLMRecommendationPayload(BaseModel):
     message: str = Field(description="Friendly message introducing the collections.")
     collections: List[LLMBookCollection] = Field(min_length=0, max_length=3)
 
-# ==============================================================================
-# 🧠 RE-ARCHITECTED PIPELINE: FAISS -> OL -> LLM
-# ==============================================================================
-
 class RecommendationService:
     def __init__(self):
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             print("WARNING: ANTHROPIC_API_KEY environment variable is not set.")
         
-        # Initialize Anthropic Client
         self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
         
-        # Asynchronous Semaphore Gatekeeper (Limits concurrent OpenLibrary API calls)
+        # Concurrency limit for upstream OpenLibrary REST endpoints
         self.ol_semaphore = asyncio.Semaphore(10)
         self.httpx_client = httpx.AsyncClient(timeout=10.0)
 
-        # Load the pre-built FAISS Index and JSON Metadata Store
         import faiss
         import numpy as np
         from google import genai
@@ -156,10 +145,8 @@ class RecommendationService:
             "content-type": "application/json"
         }
         
-        # 1. FAISS Retrieval (Semantic query)
         faiss_candidates = await self._faiss_semantic_search(prompt)
         
-        # 2. Extract precise search keywords using Claude for OpenLibrary
         search_queries = [prompt]
         if api_key:
             try:
@@ -185,8 +172,7 @@ class RecommendationService:
             except Exception as e:
                 print(f"Keyword extraction failed: {e}")
         
-        # 3. Open Library API Search + verify books
-        # We query OL for the extracted keywords, plus the titles from FAISS
+        # Query OpenLibrary with extracted keywords and nearest-neighbor matches
         for b in faiss_candidates:
             search_queries.append(f"{b['title']} {b['author']}")
             
@@ -200,7 +186,7 @@ class RecommendationService:
             
         candidate_blocks = json.dumps(list(verified_books.values()), indent=2)
         
-        # 3. LLM Prompt Construction
+        # Constrained generation prompt instructing Claude to pick IDs from candidate pool
         system_instruction = (
             "You are a Book Recommendation Engine.\n"
             "YOUR TASK: Construct 1 to 3 thematic shelves (collections) that match the user's intent.\n"
@@ -233,7 +219,6 @@ class RecommendationService:
         )
 
         try:
-            # 4. LLM Inference via Anthropic Messages API
             if not api_key:
                 print("WARNING: ANTHROPIC_API_KEY is missing from environment!")
 
@@ -260,15 +245,13 @@ class RecommendationService:
             json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             raw_payload = json.loads(json_match.group(0) if json_match else raw_text)
             
-            # 5. Pydantic Validation of LLM Output
             validated_payload = LLMRecommendationPayload.model_validate(raw_payload)
             
-            # 6. Construct Final Backend Metadata
             final_collections = []
             for collection in validated_payload.collections:
                 recs = []
                 for rec in collection.recommendations:
-                    # Map the LLM's chosen ID back to the verified book data
+                    # Hydrate verified metadata by candidate ID
                     if rec.id in verified_books:
                         ol_book = verified_books[rec.id]
                         recs.append(BookCard(
