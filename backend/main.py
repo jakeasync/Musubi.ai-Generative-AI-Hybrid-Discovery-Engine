@@ -18,7 +18,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Initialize the cognitive service layer singleton
 recommendation_engine = RecommendationService()
 
 class DiscoveryRequest(BaseModel):
