@@ -87,10 +87,11 @@ In a formal evaluation across 10 diverse natural-language benchmark prompts (spa
 
 | Metric | Unconstrained LLM Generation | Musubi Hybrid Pipeline | Impact |
 |:---|:---:|:---:|:---:|
-| **Books Failing Catalog Verification** | **20%** (11/55 fake/mismatched) | **0%** (50/50 verified) | **100% Elimination of Hallucinations** |
-| **Open Library Verification Requests** | 5.5 req / query | 4.2 req / query | **-24% to -80% API Overhead Reduction** |
+| **Fabricated Book Records (Title/Author)** | **20%** (11/55 failed catalog match) | **0%** | **Eliminated by construction** (ID validation layer) |
+| **Open Library Requests / Query** | 5.5 req / query | **4.2 req / query** | **-24% outbound API volume** |
 | **Catalog Metadata Integrity** | Variable (mismatched authors/covers) | Guaranteed primary IDs & high-res covers | **100% Deterministic Metadata** |
 | **Output Schema Validation Pass Rate** | ~82% | **100%** (Pydantic contract) | **Zero Malformed JSON Payloads** |
+| **Upstream Rate Limit Protection** | Unthrottled / Burst prone | **`asyncio.Semaphore(10)`** | **Bounded concurrent HTTP sockets** |
 
 ---
 
